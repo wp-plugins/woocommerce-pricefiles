@@ -1,5 +1,5 @@
 === WooCommerce-Pricefiles ===
-Contributors: Pekz0r
+Contributors: pekz0r
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=8L2PHLURJMC8Y
 Tags: WooCommerce, Pricefiles, Prisjakt, Pricerunner, Pricehunt
 Requires at least: 3.5.1
