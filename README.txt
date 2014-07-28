@@ -27,6 +27,10 @@ Planned serives include: Google Shopping / Google Merchant Center and Kelkoo.
 1. Screenshot of the options page
 2. Screenshot of the added fields on the product admin page
 
+== Upgrade Notice ==
+
+Please update as soon as possible. This update contains critical bugfixes.
+
 == Changelog ==
 
 = 0.1.1 =
