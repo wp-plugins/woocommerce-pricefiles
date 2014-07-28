@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: WooCommerce, Pricefiles, Prisjakt, Pricerunner, Pricehunt
 Requires at least: 3.5.1
 Tested up to: 3.9
-Stable tag: 0.1.0
+Stable tag: 0.1.1
 
 This plugins automates the generation of pricefiles for price comparison services.
 
@@ -29,6 +29,8 @@ Planned serives include: Google Shopping / Google Merchant Center and Kelkoo.
 
 == Changelog ==
 
+= 0.1.1 =
+Bugfixes
 
 = 0.1.0 =
 First public release
