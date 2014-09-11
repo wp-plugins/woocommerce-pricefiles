@@ -21,6 +21,8 @@ class WC_Pricefiles_Admin_Options extends WC_Pricefiles_Admin
         add_action('admin_enqueue_scripts', array($this, 'admin_options_styles'));
 
         add_action('admin_init', array($this, 'initialize_pricefile_options'));
+        
+        require_once dirname(WC_PLUGIN_FILE).'/includes/wc-template-functions.php';
 
         parent::__construct($plugin_slug);
     }
@@ -125,13 +127,17 @@ class WC_Pricefiles_Admin_Options extends WC_Pricefiles_Admin
      */
     function pricelist_options_page_settings()
     {
-        settings_fields('pricefile_urls_section');
-        do_settings_sections($this->plugin_slug . '_pricefile_urls_section');
-
+        settings_fields($this->plugin_slug . '_urls');
+        do_settings_sections($this->plugin_slug . '_urls_section');
+        
+        settings_fields($this->plugin_slug . '_donate');
+        do_settings_sections($this->plugin_slug . '_donate_section');
+            
         settings_fields($this->plugin_slug . '_options');
         do_settings_sections($this->plugin_slug . '_options_section');
 
         $this->submit_button();
+        
         
         settings_fields($this->plugin_slug . '_advanced_options');
         do_settings_sections($this->plugin_slug . '_advanced_options_section');
@@ -153,10 +159,10 @@ class WC_Pricefiles_Admin_Options extends WC_Pricefiles_Admin
          */
         // First, we register a section. This is necessary since all future options must belong to a 
         add_settings_section(
-            'pricefile_urls_section', // ID used to identify this section and with which to register options
+            $this->plugin_slug . '_urls', // ID used to identify this section and with which to register options
             __('Pricefile URLs', $this->plugin_slug), // Title to be displayed on the administration page
             array($this, 'pricefile_display_callback'), // Callback used to render the description of the section
-            $this->plugin_slug . '_pricefile_urls_section' // Page on which to add this section of options
+            $this->plugin_slug . '_urls_section' // Page on which to add this section of options
         );
         add_settings_section(
             $this->plugin_slug . '_donate', 
@@ -232,7 +238,10 @@ class WC_Pricefiles_Admin_Options extends WC_Pricefiles_Admin
             $this->plugin_slug . '_advanced_options_section', 
             $this->plugin_slug . '_advanced_options', 
             array(
-                'description' => __('Use cache for pricefile. Usefull if you have many products. Needs cron to refresh cache.<br />' . WP_CONTENT_DIR . '/cache/' . WC_PRICEFILES_PLUGIN_SLUG . '/' . ' needs to be writable by PHP.', $this->plugin_slug),
+                
+                'description' => __('Use cache for pricefile. Usefull if you have many products. Needs cron to refresh cache.<br />' . WP_CONTENT_DIR . '/cache/' . WC_PRICEFILES_PLUGIN_SLUG . '/' . ' needs to be writable by PHP', $this->plugin_slug).
+                        ' ('.(is_writable(WP_CONTENT_DIR . '/cache/' . WC_PRICEFILES_PLUGIN_SLUG . '/') ? '<span style="color: green">'.__('Is writable', $this->plugin_slug).'</span>' : '<span style="color: red">'.__('NOT WRITABLE', $this->plugin_slug).'</span>' ).').'
+                        
             )
         );
         add_settings_field(
@@ -384,8 +393,6 @@ class WC_Pricefiles_Admin_Options extends WC_Pricefiles_Admin
 
     function shipping_destination_callback($args)
     {
-        global $wc_pricefiles, $woocommerce;
-
         echo '<p>' . $args['description'] . '</p>';
 
         echo '<div id="shipping-destination">';
@@ -397,9 +404,8 @@ class WC_Pricefiles_Admin_Options extends WC_Pricefiles_Admin
             global $wc_pricefiles_globals;
             $shipping_destination_values = $wc_pricefiles_globals['default_shipping_destination'];
         }
-
-        $shipping_fields = $wc_pricefiles->get_shipping_destination_fields();
-
+        $shipping_fields = WC_Pricefiles()->get_shipping_destination_fields();
+        
         foreach ($shipping_fields as $key => $field) {
             $field['required'] = 0;
             woocommerce_form_field($this->plugin_slug . '_options[shipping_destination][' . $key . ']', $field, $shipping_destination_values[$key]);
