@@ -19,7 +19,7 @@ class WC_Pricefiles
      * @since    0.1.0
      * @var     string
      */
-    const VERSION = '0.1.2';
+    const VERSION = '0.1.6';
 
     /**
      * Unique identifier for your plugin.
@@ -47,46 +47,14 @@ class WC_Pricefiles
      */
     private function __construct()
     {
-        /*
-        // Register hooks that are fired when the plugin is activated, deactivated, and uninstalled, respectively.
-        register_activation_hook(__FILE__, array($this, 'activate'));
-        //Deletes all data if plugin deactivated
-        register_deactivation_hook(__FILE__, array($this, 'deactivate'));
-        */
-        add_action('init', array($this, 'init'), 2);
+        add_action('init', array($this, 'init'), 20);
 
         // Load plugin text domain
         add_action('init', array($this, 'load_plugin_textdomain'));
 
-        // Activate plugin when new blog is added
-        //add_action('wpmu_new_blog', array($this, 'activate_new_site'));
-
-        //add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), array( $this, 'action_links' ) );
-        // Add the options page and menu item.
-        add_action('admin_menu', array($this, 'add_plugin_admin_menu'));
-
-        // Load admin style sheet and JavaScript.
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_styles'));
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
-
-        // Load public-facing style sheet and JavaScript.
-        //add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'));
-        //add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
-
-        //Add custom fields to the bottom of the "General" product tab.
-        add_action('woocommerce_product_options_general_product_data', array($this, 'product_data_fields'), 999);
-        //Hook into product meta save action to save our custom fields.
-        add_action('woocommerce_process_product_meta', array($this, 'process_product_data_fields'), 10, 2);
-
-        //Refresh cache AJAX call
-        add_action('wp_ajax_wc_pricefiles_refresh_pricefile_cache', array($this, 'ajax_check_ean_code'));
-        //EAN code validator AJAX call
-        add_action('wp_ajax_wc_pricefiles_check_ean_code', array($this, 'ajax_check_ean_code'));
-
-        add_action('admin_notices', array($this, 'notices'));
-
-        //Update pricefile cat acording to the catorgory mappings on product save
-        add_action('save_post', array($this, 'update_pricefile_category'));
+        if(is_admin())
+        {
+        }
     }
 
     /**
@@ -104,18 +72,96 @@ class WC_Pricefiles
             self::$instance = new self;
         }
 
-        return self::$instance;
+        return self::$instance;         
+    }
+
+    public function check_dependencies()
+    {   
+        //Needed for is_plugin_active() call
+        include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
+
+        if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) ) 
+        // if ( is_plugin_active( 'woocommerce/woocommerce.php' ) ) 
+        {
+            require_once( WP_PRICEFILES_PLUGIN_PATH .'includes/pricefiles.php' );
+            
+            return true;
+        } 
+        else
+        {
+            $misc = new WC_Pricefiles_Misc();
+            
+            if(!empty($_GET['wcpf-deactivate-woocommerce-pricefiles']) && $_GET['wcpf-deactivate-woocommerce-pricefiles'] == 1)
+            {
+                die(plugin_basename(__FILE__));
+        
+                add_action('init', array($misc, 'deactivate_plugin'));
+                add_action('admin_notices', array($misc, 'deactivate_plugin_notice'));
+            }
+            /*
+            if(!empty($_GET['wcpf-activate-woocommerce']) && $_GET['wcpf-activate-woocommerce'] == 1)
+            {
+                add_action('init', array($misc, 'activate_woocommerce'));
+                add_action('admin_notices', array($misc, 'activate_woocommerce_notice'));
+            }
+            */
+            else
+            {
+                add_action('admin_notices', array($misc, 'woocommerce_not_active_notice'));
+            }
+
+            return false;
+        }
+    
     }
     
     function init()
     {
-        require_once( WP_PRICEFILES_PLUGIN_PATH . 'includes/admin.php' );
-        require_once( WP_PRICEFILES_PLUGIN_PATH . 'includes/admin/options.php' );
-        require_once( WP_PRICEFILES_PLUGIN_PATH . 'includes/admin/category-mapping.php' );
+        require 'misc.php';
+        
+        if(!$this->check_dependencies())
+        {
+            return false;
+        }
+        
+        // Load public-facing style sheet and JavaScript.
+        //add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'));
+        //add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
 
         if (is_admin())
         {
+            // Activate plugin when new blog is added
+            //add_action('wpmu_new_blog', array($this, 'activate_new_site'));
+
+            add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), array( $this, 'action_links' ) );
+
+            // Add the options page and menu item.
+            add_action('admin_menu', array($this, 'add_plugin_admin_menu'));
+
+            // Load admin style sheet and JavaScript.
+            add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_styles'));
+            add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+
+            //Add custom fields to the bottom of the "General" product tab.
+            add_action('woocommerce_product_options_general_product_data', array($this, 'product_data_fields'), 999);
+            //Hook into product meta save action to save our custom fields.
+            add_action('woocommerce_process_product_meta', array($this, 'process_product_data_fields'), 10, 2);
+
+            //Register refresh cache AJAX call
+            add_action('wp_ajax_wc_pricefiles_refresh_pricefile_cache', array($this, 'ajax_check_ean_code'));
+            //Register EAN code validator AJAX call
+            add_action('wp_ajax_wc_pricefiles_check_ean_code', array($this, 'ajax_check_ean_code'));
+
+            add_action('admin_notices', array($this, 'notices'));
+
+            //Update pricefile cat acording to the catorgory mappings on product save
+            add_action('save_post', array($this, 'update_pricefile_category'));
         
+            //Include admin classes
+            require_once( WP_PRICEFILES_PLUGIN_PATH . 'includes/admin.php' );
+            require_once( WP_PRICEFILES_PLUGIN_PATH . 'includes/admin/options.php' );
+            require_once( WP_PRICEFILES_PLUGIN_PATH . 'includes/admin/category-mapping.php' );
+
             //Initialize all admin pages
             new WC_Pricefiles_Admin_Options($this->plugin_slug);
             new WC_Pricefiles_Admin_Category_Mapping($this->plugin_slug);
@@ -754,5 +800,7 @@ class WC_Pricefiles
         return $up + $pricelist_cats;
         //return array_merge($up, $pricelist_cats);
     }
+
+
 
 }
