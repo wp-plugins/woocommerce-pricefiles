@@ -28,10 +28,15 @@ abstract class WC_Pricefile_Generator
     {
         global $wc_pricefiles_globals;
 
-        set_time_limit(0);
+        if(!@set_time_limit(0)) {
+            //TODO: Debug log: Could not set time limit
+        }
         
         $this->pricefile_slug = $pricefile_slug;
         
+        require_once( WP_PRICEFILES_PLUGIN_PATH . 'includes/admin.php' );
+        require_once( WP_PRICEFILES_PLUGIN_PATH . 'includes/admin/options.php' );
+
         $this->options = get_option(WC_PRICEFILES_PLUGIN_SLUG . '_options', WC_Pricefiles_Admin_Options::default_pricelist_options());
         
         //var_dump($this->options);
@@ -258,19 +263,21 @@ abstract class WC_Pricefile_Generator
         }
     }
 
-    public function get_categories($product_id)
+    public function get_categories($product)
     {
         global $wc_pricefiles_globals;
+        
+        $product_id = $product->id;
 
         $cat = get_post_meta($product_id, '_pricelist_cat', true);
-
+        
         if ($cat && !empty($wc_pricefiles_globals['wc_pricefiles_categories'][$cat]))
         {
             return $wc_pricefiles_globals['wc_pricefiles_categories'][$cat];
         }
 
         $terms = get_the_terms($product_id, 'product_cat');
-
+        
         if(is_wp_error( $terms ) || count($terms) == 0)
         {
             return '';
