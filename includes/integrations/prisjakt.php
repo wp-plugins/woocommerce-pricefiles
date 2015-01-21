@@ -13,13 +13,36 @@ class WC_Pricefile_Prisjakt extends WC_Pricefile_Generator
 {
 
     /**
+     * Generates header for CSV-file
+     * 
+     * @since    0.1.10
+     */
+    function get_header()
+    {
+        $columns = array(
+            'Produktnamn','Art.nr.','EAN','Tillverkare','Tillverkar-SKU','Kategori','Pris inkl.moms','Frakt','Produkt-URL','Bild-URL','Lagerstatus'
+        );
+        
+        $header = '';
+        foreach($columns AS $c)
+        {
+            $header .= self::VALUE_ENCLOSER_BEFORE . $c . self::VALUE_ENCLOSER_AFTER . self::VALUE_SEPARATOR;
+        }
+        
+        return trim($header, self::VALUE_SEPARATOR)."\n";
+    }
+
+    /**
      * Implements WC_Pricefile_Generator->generate_pricefile)= and  genereates the pricefile
      * 
      * @since    0.1.0
      */
     public function generate_pricefile()
     {
-        $this->read_cache();
+        if($this->read_cache())
+        {
+            die();    
+        }
          
         $args = array(
             'post_type' => 'product',
@@ -32,7 +55,7 @@ class WC_Pricefile_Prisjakt extends WC_Pricefile_Generator
         if ($loop->have_posts())
         {
             //Output headers
-            echo 'Produktnamn;Art.nr.;Tillverkare;Tillverkar-SKU;Kategori;Pris inkl.moms;Frakt;Produkt-URL;Bild-URL;Lagerstatus' . "\n";
+            echo  $this->get_header();
 
             //Get list of excluded products
             if (empty($this->options['exclude_ids']))
@@ -42,12 +65,6 @@ class WC_Pricefile_Prisjakt extends WC_Pricefile_Generator
             {
                 $excluded = $this->options['exclude_ids'];
             }
-
-            $product_meta_values = array(
-                '_ean_code' => array(''),
-                '_manufacturer' => array(''),
-                '_sku_manufacturer' => array(''),
-            );
 
             while ($loop->have_posts())
             {
@@ -70,7 +87,7 @@ class WC_Pricefile_Prisjakt extends WC_Pricefile_Generator
                 $product_data = $product->get_post_data();
 
 
-                $product_meta = array_merge($product_meta_values, get_post_meta($product_id));
+                $product_meta = get_post_meta($product_id);
 
                 //Product title
                 echo $this::format_value($product_data->post_title);
@@ -79,33 +96,16 @@ class WC_Pricefile_Prisjakt extends WC_Pricefile_Generator
                 echo $this::format_value($product->get_sku());
 
                 //EAN code
-                if (empty($product_meta['_ean_code'][0]))
-                {
-                    echo $this::format_value('');
-                } else
-                {
-                    echo $this::format_value($product_meta['_ean_code'][0]);
-                }
+                echo $this::format_value($this::get_ean($product_meta));
+
                 //Manufacturer name
-                if (empty($product_meta['_manufacturer'][0]))
-                {
-                    echo $this::format_value('');
-                } else
-                {
-                    echo $this::format_value($product_meta['_manufacturer'][0]);
-                }
+                echo $this::format_value($this::get_manufacturer($product_meta));
+
                 //Manufacturer SKU/Product id
-                if (empty($product_meta['_sku_manufacturer'][0]))
-                {
-                    echo $this::format_value('');
-                } else
-                {
-                    echo $this::format_value($product_meta['_sku_manufacturer'][0]);
-                }
+                echo $this::format_value($this::get_manufacturer_sku($product_meta));
 
                 //Category
                 echo $this::format_value($this->get_categories($product));
-
 
                 //Price
                 echo $this::format_value($product->get_price_including_tax(1));
@@ -127,6 +127,9 @@ class WC_Pricefile_Prisjakt extends WC_Pricefile_Generator
                 if (has_post_thumbnail($product_id))
                 {
                     echo $this::format_value(wp_get_attachment_url(get_post_thumbnail_id($product_id)));
+                } else
+                {
+                    echo $this::format_value('');
                 }
 
                 //Stock status

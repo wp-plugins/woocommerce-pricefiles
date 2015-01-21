@@ -11,6 +11,30 @@
  */
 class WC_Pricefile_Pricerunner extends WC_Pricefile_Generator
 {
+    const VALUE_SEPARATOR = ',';
+    const VALUE_ENCLOSER_BEFORE = '"';
+    const VALUE_ENCLOSER_AFTER = '"';
+    
+    /**
+     * Generates header for CSV-file
+     * 
+     * @since    0.1.10
+     */
+    function get_header()
+    {
+        $columns = array(
+            'Category','SKU','Price','Product URL','Product Name','Manufacturer SKU','Manufacturer','EAN','Description','Graphic URL','In Stock','Stock Level','Delivery Time','Shippingcost'
+        );
+        
+        $header = '';
+        foreach($columns AS $c)
+        {
+            $header .= self::VALUE_ENCLOSER_BEFORE . $c . self::VALUE_ENCLOSER_AFTER . self::VALUE_SEPARATOR;
+        }
+        
+        return $header."\n";
+        //return trim($header, self::VALUE_SEPARATOR)."\n";
+    }
 
     /**
      * Implements WC_Pricefile_Generator->generate_pricefile)= and  genereates the pricefile
@@ -19,7 +43,10 @@ class WC_Pricefile_Pricerunner extends WC_Pricefile_Generator
      */
     public function generate_pricefile()
     {
-        $this->read_cache();
+        if($this->read_cache())
+        {
+            die();    
+        }
              
         $args = array(
             'post_type' => 'product',
@@ -32,7 +59,7 @@ class WC_Pricefile_Pricerunner extends WC_Pricefile_Generator
         if ($loop->have_posts())
         {
             //Output headers
-            echo '"Category";"SKU";"Price";"Product URL";"Product Name";"Manufacturer SKU";"Manufacturer";"EAN";"Description,Graphic URL";"In Stock";"Stock Level";"Delivery Time";"Shippingcost"' . "\n";
+            echo  $this->get_header();
 
             //Get list of excluded products
             $excluded = $this->options['exclude_ids'];
@@ -75,31 +102,13 @@ class WC_Pricefile_Pricerunner extends WC_Pricefile_Generator
                 echo $this::format_value($product_data->post_title);
 
                 //Manufacturer SKU/Product id
-                if(empty($product_meta['_sku_manufacturer'][0]))
-                {
-                    echo $this::format_value('');
-                }
-                else {
-                    echo $this::format_value($product_meta['_sku_manufacturer'][0]);
-                }
+                echo $this::format_value($this->get_manufacturer_sku($product_meta));
                 
                 //Manufacturer name
-                if(empty($product_meta['_manufacturer'][0]))
-                {
-                    echo $this::format_value('');
-                }
-                else {
-                    echo $this::format_value($product_meta['_manufacturer'][0]);
-                }
+                echo $this::format_value($this->get_manufacturer($product_meta));
 
                 //EAN code
-                if(empty($product_meta['_ean_code'][0]))
-                {
-                    echo $this::format_value('');
-                }
-                else {
-                    echo $this::format_value($product_meta['_ean_code'][0]);
-                }
+                echo $this::format_value($this->get_ean($product_meta));
 
                 //Discription
                 echo $this::format_value(strip_tags($product_data->post_excerpt));
@@ -108,6 +117,10 @@ class WC_Pricefile_Pricerunner extends WC_Pricefile_Generator
                 if (has_post_thumbnail($product_id))
                 {
                     echo $this::format_value(wp_get_attachment_url(get_post_thumbnail_id($product_id)));
+                }
+                else
+                {
+                    echo $this::format_value('');
                 }
 
                 //Stock status

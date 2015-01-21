@@ -24,6 +24,11 @@ abstract class WC_Pricefile_Generator
     public $price_type = null;
     public $pricefile_slug = null;
 
+    //Default CSV separators
+    const VALUE_SEPARATOR = ';';
+    const VALUE_ENCLOSER_BEFORE = '"';
+    const VALUE_ENCLOSER_AFTER = '"';
+
     public function __construct($pricefile_slug)
     {
         global $wc_pricefiles_globals;
@@ -90,8 +95,14 @@ abstract class WC_Pricefile_Generator
 
     //protected static abstract function get_instance();
 
+    
     protected abstract function generate_pricefile();
 
+    /**
+     * Check if cache is activated
+     * 
+     * @return  bool   
+     */
     protected function use_cache()
     {
         if (empty($this->options['use_cache']) || (!empty($this->options['use_cache']) && $this->options['use_cache'] != 1) )
@@ -103,6 +114,12 @@ abstract class WC_Pricefile_Generator
             return true;
         }
     }
+
+    /**
+     * Check if cache can be written
+     * 
+     * @return  bool   
+     */
     protected function can_read_cache()
     {
         if ( !$this->use_cache() )
@@ -115,7 +132,7 @@ abstract class WC_Pricefile_Generator
             return false;
         }
 
-        if (false === ( $time = get_transient(WC_PRICEFILES_PLUGIN_SLUG . '_file_cache_time_' . $this->pricefile_slug) ))
+        if ( ( $time = get_transient(WC_PRICEFILES_PLUGIN_SLUG . '_file_cache_time_' . $this->pricefile_slug) ) === false )
         {
             return false;
         }
@@ -123,6 +140,11 @@ abstract class WC_Pricefile_Generator
         return true;
     }
     
+    /**
+     * Read pricefile form cache
+     * 
+     * @return  boolstring  Status   
+     */
     function read_cache()
     {
         if($this->can_read_cache())
@@ -134,7 +156,8 @@ abstract class WC_Pricefile_Generator
                 //echo 'serverd from cache:';
                 echo file_get_contents($cache_path);
 
-                return 'cache_read';
+                //return 'cache_read';
+                return true;
             }
         }
         
@@ -146,6 +169,11 @@ abstract class WC_Pricefile_Generator
         return false;
     }
 
+    /**
+     * Save generated pricefile to cache
+     * 
+     * @return  string  Status   
+     */
     protected function save_cache()
     {
         if ( !$this->use_cache() )
@@ -197,7 +225,8 @@ abstract class WC_Pricefile_Generator
         if(empty($_GET['output']) || $_GET['output'] != 'json')
         {
             echo $data;
-            die(); //Stop execution completely to prevent garbage data (unlike wp_die()). 
+            // Stop execution completely to prevent garbage data (unlike wp_die()). 
+            die(); 
         }
         else
         {
@@ -205,6 +234,11 @@ abstract class WC_Pricefile_Generator
         }
     }
     
+    /**
+     * Is debug more on?
+     * 
+     * @return  bool   
+     */
     function is_debug()
     {
         if(!empty($this->options['use_debug']) && $this->options['use_debug'] == 1)
@@ -216,20 +250,31 @@ abstract class WC_Pricefile_Generator
         }
     }
 
+    
+    /**
+     * Formats the value for output in pricefile and adds the required field separators.
+     * 
+     * @param   string/numeric  Value to be formatted
+     * @return  string   Formatted value
+     */
     public static function format_value($value)
     {
-	if (empty($value) && $value !== 0 )
+		if (empty($value) && $value !== 0 && $value !== 0.0 )
         {
             $value = '';
         }
         
-        return '"' . addcslashes($value, '"\\') . '";';
+        $c = get_called_class();
 
-        //return str_replace(';', '\;', esc_attr($value.'"\\')).';';
-        //return preg_replace('', $replacement, $subject)
-        //(';', '\;', esc_attr($value)).';';
+        return $c::VALUE_ENCLOSER_BEFORE . addcslashes($value, '"\\') . $c::VALUE_ENCLOSER_AFTER . $c::VALUE_SEPARATOR;
     }
 
+    /**
+     * Get price with correct tax display option
+	 *
+     * @return  string  'incl' or 'excl'
+     * @since   0.1.10
+     */
     public function get_price($product)
     {
         if ($this->get_price_type() === 'excl')
@@ -241,18 +286,28 @@ abstract class WC_Pricefile_Generator
         }
     }
 
+    /**
+     * Get price tax display option. I.e. whether we should out put prices including or excluding tax  
+	 *
+     * @return  string  'incl' or 'excl'
+     * @since   0.1.10
+     */
     public function get_price_type()
     {
         if (!empty($this->price_type))
         {
             return $this->price_type;
         }
-        $wc_option = get_option('woocommerce_tax_display_cart');
-        if ($this->options['output_prices'] == 'shop' && !empty($wc_option))
+        if ($this->options['output_prices'] == 'shop')
         {
-            $this->price_type = $wc_option;
-            return $this->price_type;
-        } elseif (!empty($this->options['output_prices']))
+            $wc_option = get_option('woocommerce_tax_display_cart');
+            if(!empty($wc_option) )
+            {
+                $this->price_type = $wc_option;
+                return $this->price_type;
+            }
+        } 
+        if (!empty($this->options['output_prices']))
         {
             $this->price_type = $this->options['output_prices'];
             return $this->price_type;
@@ -263,13 +318,20 @@ abstract class WC_Pricefile_Generator
         }
     }
 
+    /**
+     * Get product categories formatted for pricefile.
+	 *
+     * @param   array   $product_meta Return value from get_post_meta()
+     * @return  string  The manufacturer name or an empty string if it's missing.
+     * @since   0.1.10
+     */
     public function get_categories($product)
     {
         global $wc_pricefiles_globals;
         
         $product_id = $product->id;
 
-        $cat = get_post_meta($product_id, '_pricelist_cat', true);
+        $cat = get_post_meta($product_id, WC_PRICEFILES_PLUGIN_SLUG . '_pricelist_cat', true);
         
         if ($cat && !empty($wc_pricefiles_globals['wc_pricefiles_categories'][$cat]))
         {
@@ -319,11 +381,11 @@ abstract class WC_Pricefile_Generator
 
     /**
      * This function is a hack to calculate the shipping cost for a single product. To do this we must first build a cart object and after that a package object that is needed to calculate the price. 
-     * TODO: This need to be revisited
+     * TODO: This need to be revisited. Has been improved, but not perfect
      * 
-     * @global type $woocommerce
-     * @param object $product Product object
-     * @return float Lowest shipping price
+     * @global  object  $woocommerce
+     * @param   object  $product Product object
+     * @return  float   Lowest shipping price
      */
     public function get_shipping_cost($product)
     {
@@ -334,13 +396,13 @@ abstract class WC_Pricefile_Generator
         $destination['state'] = '';
         $destination['address_2'] = '';
 
-        // Packages array for storing 'carts'
+        // Packages array for storing package/cart object
         $packages = array();
 
         $price = $product->get_price_excluding_tax(1);
         $price_tax = $product->get_price_including_tax(1) - $price;
 
-
+		// Build up a fake package object
         $cart = array(
             'product_id' => $product->id,
             'variation_id' => '',
@@ -353,22 +415,23 @@ abstract class WC_Pricefile_Generator
             'line_subtotal_tax' => $price_tax,
         );
 
-        $packages[0]['contents'][md5('wc_pricefiles_' . $product->id . $price)] = $cart;  // Items in the package
-        $packages[0]['contents_cost'] = $price;      // Cost of items in the package, set below
-        $packages[0]['applied_coupons'] = '';  // Applied coupons - some, like free shipping, affect costs
+		// Items in the package
+        $packages[0]['contents'][md5('wc_pricefiles_' . $product->id . $price)] = $cart;  
+		// Cost of items in the package, set below
+        $packages[0]['contents_cost'] = $price;  
+ 		// Applied coupons - some, like free shipping, affect costs    
+        $packages[0]['applied_coupons'] = ''; 
+		// Fake destination address. Needed for calculation the shipping
         $packages[0]['destination'] = $destination;
 
+		// Apply filters to mimic normal behaviour
         $packages = apply_filters('woocommerce_cart_shipping_packages', $packages);
+
 
         $package = $packages[0];
 
+		// Calculate the shipping using our fake package object
         $shipping_methods = $woocommerce->shipping->calculate_shipping_for_package($package);
-
-        /*
-          print_r(($this->shipping_methods));
-          print_r($shipping_methods['rates']);
-          print_r($shipping_methods);
-         */
 
         $lowest_shipping_cost = 0;
 
@@ -380,12 +443,27 @@ abstract class WC_Pricefile_Generator
             {
                 if (in_array($rate->method_id, $this->shipping_methods))
                 {
-                    //echo $rate->method_id.'_'.$rate->cost.'||';
-                    //print_r($rate);
-
-                    if (empty($lowest_shipping_cost) || $rate->cost < $lowest_shipping_cost)
+                    $total_tax = 0;
+                    
+                    if( $this->get_price_type() == 'incl' )
                     {
-                        $lowest_shipping_cost = $rate->cost;
+                        //Sum the taxes
+                        foreach($rate->taxes AS $tax)
+                        {
+                            $total_tax += $tax;
+                        }
+
+                        //Calc shipping cost including tax
+                        $total_cost = $rate->cost + $total_tax;
+                    }
+                    else
+                    {
+                        $total_cost = $rate->cost;
+                    }
+
+                    if (empty($lowest_shipping_cost) || $total_cost_inc_tax < $lowest_shipping_cost)
+                    {
+                        $lowest_shipping_cost = $total_cost_inc_tax;
                     }
                 }
             }
@@ -394,11 +472,72 @@ abstract class WC_Pricefile_Generator
         return $lowest_shipping_cost;
     }
 
+    /**
+     * Extract the EAN code of a product.
+     * 
+     * @param array $product_meta Return value from get_post_meta()
+     * @return string The EAN code or an empty string if it's missing.
+     * @since    0.1.10
+     */
+    protected static function get_ean($product_meta)
+    {
+        if (isset($product_meta[WC_PRICEFILES_PLUGIN_SLUG . '_ean_code'][0]))
+        {
+            return $product_meta[WC_PRICEFILES_PLUGIN_SLUG . '_ean_code'][0];
+        }
+        else {
+            return '';
+        }
+    }
+
+    /**
+     * Extract the manufacturer name of a product.
+	 *
+     * @param   array   $product_meta Return value from get_post_meta()
+     * @return  string  The manufacturer name or an empty string if it's missing.
+     * @since   0.1.10
+     */
+    protected static function get_manufacturer($product_meta)
+    {
+        if (isset($product_meta[WC_PRICEFILES_PLUGIN_SLUG . '_manufacturer'][0]))
+	{
+            $term = get_term_by('slug', $product_meta[WC_PRICEFILES_PLUGIN_SLUG . '_manufacturer'][0], 'pa_manufacturer');
+            if ($term !== false) {
+                return $term->name;
+            }
+            else {
+                return '';
+            }
+        }
+        else {
+            return '';
+        }
+    }
+
+    /**
+     * Extract the manufacturer SKU of a product.
+     * 
+     * @param   array   $product_meta Return value from get_post_meta()
+     * @return  string  The manufacturer SKU or an empty string if it's missing.
+	 * @since    0.1.10
+     */
+    protected static function get_manufacturer_sku($product_meta)
+    {
+        if (isset($product_meta[WC_PRICEFILES_PLUGIN_SLUG . '_sku_manufacturer'][0]))
+        {
+            return $product_meta[WC_PRICEFILES_PLUGIN_SLUG . '_sku_manufacturer'][0];
+        }
+        else {
+            return '';
+        }
+    }
+
 }
 
 /*
  * This function exist only in PHP >= 5.3.
- * For for previous versions, we need to emulate this function
+ * For for previous versions, we need to emulate this function.
+ * Ugly hack, but it works.
  */
 if (!function_exists('get_called_class'))
 {
